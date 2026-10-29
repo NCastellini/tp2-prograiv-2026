@@ -13,7 +13,7 @@ export interface NoteService {
 }
 
 export class NoteServiceImpl implements NoteService {
-  constructor(private readonly repo: NoteRepository) {}
+  constructor(private readonly repo: NoteRepository) { }
 
   createNote(data: NewNote): Note {
     // 🔴 EJERCICIO 1 (dado en rojo en tests/unit/noteService.create.test.ts)
@@ -36,8 +36,7 @@ export class NoteServiceImpl implements NoteService {
   }
 
   getNote(id: number): Note | undefined {
-    // 🔴🟢 EJERCICIO 3: ciclo completo (test + implementación).
-    throw new Error('getNote: no implementado (Ejercicio 3)');
+    return this.repo.findById(id);
   }
 
   updateNote(id: number, patch: NotePatch): Note | undefined {
