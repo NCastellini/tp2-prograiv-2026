@@ -1,53 +1,60 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+
 import { makeApp } from '../../src/app';
-import { createDb } from '../../src/db/connection';
-import { SqliteNoteRepository } from '../../src/repositories/NoteRepository';
 
 describe('GET /notes/:id (Ejercicio 3)', () => {
-    let dir: string;
-    let app: ReturnType<typeof makeApp>;
-    let db: ReturnType<typeof createDb>;
-    let repo: SqliteNoteRepository;
+    const app = makeApp(':memory:');
 
-    beforeEach(() => {
-        // Base en un archivo temporal: la app y el test usan el mismo archivo,
-        // así podemos sembrar una nota sin depender de POST /notes.
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-'));
-        const dbPath = path.join(dir, 'test.sqlite');
-        app = makeApp(dbPath);
-        db = createDb(dbPath);
-        repo = new SqliteNoteRepository(db);
+    beforeEach(async () => {
+        await request(app).post('/__test__/reset');
     });
 
-    afterEach(() => {
-        db.close();
-        fs.rmSync(dir, { recursive: true, force: true });
+    it('obtiene una nota existente por su id', async () => {
+        const responseCreate = await request(app)
+            .post('/notes')
+            .send({
+                title: 'Comprar pan',
+                content: 'Antes de las 20hs'
+            });
+
+        const id = responseCreate.body.id;
+
+        const response = await request(app)
+            .get(`/notes/${id}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.id).toBe(id);
+        expect(response.body.title).toBe('Comprar pan');
+        expect(response.body.content).toBe('Antes de las 20hs');
     });
 
-    it('responde 200 y la nota cuando el id existe', async () => {
-        const seeded = repo.create({ title: 'Comprar pan', content: 'Antes de las 20hs' });
+    it('devuelve 404 si el id no existe', async () => {
+        const response = await request(app)
+            .get('/notes/999');
 
-        const res = await request(app).get(`/notes/${seeded.id}`);
-
-        expect(res.status).toBe(200);
-        expect(res.body).toMatchObject({
-            id: seeded.id,
-            title: 'Comprar pan',
-            content: 'Antes de las 20hs',
-            pinned: false
-        });
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('NotFound');
     });
 
-    it('responde 404 cuando el id no existe', async () => {
-        const res = await request(app).get('/notes/999');
+    describe('PATCH /notes/:id (Ejercicio 4)', () => {
+    it('debe responder con 200 y modificar la nota parcialmente', async () => {
 
-        expect(res.status).toBe(404);
-        expect(res.body).toEqual({ error: 'NotFound' });
+    const resCreate = await request(app)
+        .post('/notes')
+        .send({ title: 'Nota Inicial', content: 'Contenido Inicial' });
+
+    const noteId = resCreate.body.id;
+
+    const response = await request(app)
+        .patch(`/notes/${noteId}`)
+        .send({ title: 'Nota Modificada' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.title).toBe('Nota Modificada');
+    expect(response.body.content).toBe('Contenido Inicial');
     });
+});
 });
 
 describe('DELETE /notes/:id (Ejercicio 5)', () => {
